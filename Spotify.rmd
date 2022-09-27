@@ -1,0 +1,577 @@
+---
+title: "PROJECT_3"
+author: "Tarun Guntaka"
+date: '2022-04-24'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+The world of media arts consumption has gone through dramatic changes over these past 30 years. In this new era of instant & boundless content access, everything from the projects that get produced, the way they are produced, and the user experience have gone through astounding metamorphosis. Media companies that have risen to the top and managed to stay are those who understood early on that user attraction & retention is the single most important pillar to success. Spotify is an international media services provider. The company’s primary business is providing an audio streaming platform, the “Spotify” platform, that provides DRM-restricted music, videos and podcasts from record labels and media companies.
+
+The way Spotify suggest music to listeners has a major influence on their listening habits. The motivation of this project is to enable anyone to discover patterns and insights about the music that they listen to. In doing so, They gain a better understanding of the musical behaviors when they listen to songs on Spotify.
+
+In this project, I will be analyzing some of the audio features of songs available on Spotify in order to gauge and gain insight into the factors that can contribute directly or indirectly to a song's popularity. The data includes information about the track, such as the artist and genre details, as well as information about the musicality of the song, such as valence, loudness, energy, and so on. Our study may be of interest to musicians or producers who want to understand what ways they can make music that would be more popular with their Spotify target audience. Perhaps the factors we identify here can inform artists on ways they can make their music heard by a larger audience as well. Even if we don’t find relationships among the metrics here with popularity, that in itself is an interesting conclusion that can inform the decisions of those who make and listen to music. As a consumer, it can sometimes be hard to pin point why or why not a song is enjoyable. We can help Spotify listeners to identify certain songs that have similar songs to others that they enjoy in a way that can help improve their listening experience.
+
+# Problem Statement 
+
+The problem that I am trying to address with this project is to try to find and analyse the features which directly contribute to the popularity of a song. There are many different kinds of songs which are releasing every day. What makes a song more likeable than another? Why is one genre more popular than another? These are some of the questions I plan on addressing through this project.
+
+
+The following tasks are performed:
+
+Correlation between the different variables
+
+Identifying each genre’s features and how Spotify classifies genres
+
+Analyzing features that affect popularity
+
+A predictive model to identify popularity of a song
+
+By performing Data Preparation, Exploratory Data Analysis and Predictive Modeling.
+
+Based on our analysis, the consumer will be able to identify which factors influence the popularity of a song on Spotify.
+
+# Packages Required 
+
+
+Tibble: Used to store data as a tibble, and makes it much easier to handle and manipulate data
+
+DT: Used to display the data on the screen in a scrollable format
+
+Knitr: Used to display an aligned table on the screen
+
+TM: Used for text mining on the “Genre” columns in the data
+
+Dplyr: Used for data manipulation
+
+Ggplot2: Used to plot charts
+
+Wordcloud: Used to chart wordcloud in the genre text analysis
+
+Plotly: Used to plot interactive charts
+
+corrplot: For displaying correlation matrices and confidence intervals
+
+kableExtra : Manipulate table styles for good visualizations
+
+Leaps: It performs an exhaustive search for the best subsets of the variables in x for predicting y in linear regression, using an efficient branch-and-bound algorithm.
+
+
+```{r pressure, echo=FALSE}
+library(tibble)
+library(DT)
+library(knitr)
+library(tm)
+library(ggplot2)
+library(wordcloud)
+library(dplyr)
+library(plotly)
+library(corrplot)
+library(kableExtra)
+library(leaps)
+
+```
+
+
+
+# Data Preparation 
+
+
+## Data Background 
+
+This 2020 Spotify data comes from the spotifyr package, which is an R wrapper that was created by Charlie Thompson, Josiah Parry, Donal Phipps, and Tom Wolff to make it easier to access your own Spotify data or general data about songs from Spotify’s API.
+
+The data set explored here was gathered by Kaylin Pavlik using audio features of the Spotify data in pursuit of exploration and classification of a collection of songs from 6 main genres (EDM, Latin, Pop, R&B, Rap, and Rock).
+
+
+The data used in this project was obtained from the [GitHub TidyTuesday project](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-01-21/readme.md). 
+
+```{r}
+
+#Ceating the "spotify" dataframe below by reading the data from github
+
+spotify<- read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-21/spotify_songs.csv')
+
+head(spotify)
+```
+
+
+There are 23 audio features for each track, including confidence measures like acousticness, liveness, speechiness and instrumentalness, perceptual measures like energy, loudness, danceability and valence (positiveness), and descriptors like duration, tempo, key, and mode.
+
+
+```{r}
+colnames(spotify)
+```
+The dataset has 32833 records at a Track-Genre-Artist level and 23 variables.
+
+
+```{r}
+dim(spotify)
+```
+## Null values in the dataset 
+
+Surprisingly, there are only a total of 15 Null values in the 32833 X 23 dataframe, which is amazing considering it is a real dataset. When I deep dived into the null values across columns we see that - trac_artist, track_name and track_album_name have 5 Null values each.
+```{r}
+#getting the count of total null values in data 
+
+sum(is.na(spotify))
+
+```
+```{r}
+#getting null values by columns
+
+colSums(is.na(spotify))
+```
+## Data Cleaning 
+
+### Variable Types
+It is vital to have the correct data type for each column prior to any analysis. Hence, we used str() to observe the data types of each column and changed the data type wherever necessary. Below are the observations:
+
+```{r}
+# checking variable types for consistencies 
+str(spotify)
+
+```
+## Observations:
+
+1) mode currently has a numeric field, however it is a factor/Boolean variable, as it has values{0,1}.
+
+2) track_album_release_date is currently a character column but its actually a field with date values; Its vital to change this as we would need this column in date format for analysis- Example: Time series plots, Y-o-Y growth analysis,etc.
+
+Thus, in the following section of code, we manually change the datatypes for the two columns to the required type.
+
+```{r}
+#Modyfying Data types
+spotify$mode <- as.factor(spotify$mode)
+spotify$track_album_release_date <- as.Date(spotify$track_album_release_date)
+```
+
+## Replacing Missing Values
+
+We had earlier seen that we had 5 missing values each in track_artist, track_album_name and track_name. We impute these missing values with a character constant ‘unknown’. Further, these missing values do not pose a serious threat to any of the analysis that we expect to perform in the future. This is because of two primary reasons -
+
+a) It is a small fraction in our data set
+
+b) We still have a lot of information for these records that we can use for our EDA
+
+```{r}
+#Missing Value Treatment
+spotify$track_artist[is.na(spotify$track_artist)] <- 'unknown'
+spotify$track_album_name[is.na(spotify$track_album_name)] <- 'unknown'
+spotify$track_name[is.na(spotify$track_name)] <- 'unknown'
+```
+
+We see now that we do not have any missing values in our data.
+
+```{r}
+colSums(is.na(spotify))
+
+```
+## Removing duplicate values 
+
+we will now filter for unique tracks, by removing all the duplicate tracks using the duplicated function
+```{r}
+spotify <- spotify[!duplicated(spotify$track_id),]
+
+```
+
+## Data Manipulation 
+
+We are creating 2 new columns
+
+year - which will have the year of release of the album / song
+
+durn_minutes - which will have the duration of the song in minutes
+
+```{r}
+#creatiing a year columns
+
+spotify$year <- substr(spotify$track_album_release_date,1,4)
+
+#Creating a duration in minutes column
+spotify$durn_minutes <- spotify$duration_ms/(1000*60)
+```
+
+
+## Numercial and visual summary 
+
+Looking at the summary of the numeric data provides us a high-level understanding of data distribution and centrality. While glancing through the summary, we can also quickly get an idea about which columns to thoroughly inspect for outliers.
+
+```{r}
+#Generating summary
+summary(select_if(spotify,is.numeric))
+```
+From the descriptive statistics of the numeric variables that we obtained above, we see that for some variables the mean is not very close to the median, which indicates the skewness in the data and further hints towards the possibility of potential outliers. We also can get an idea of whether the outlier is towards the lower bound or the upper bound in the data, i.e Right skewness (Mean > Median) suggests outliers towards the upper bound and Left skewness (Mean < Median) suggests that the outliers are towards the lower bound.
+
+To further check if the variables have outliers in the data we plot the distribution of these variables using boxplots
+
+For the character variables, we explore the number of levels/distinct value in each variable.
+
+```{r}
+#checking levels for character variables
+ulst <- lapply(select_if(spotify,is.character),unique)
+k <- lengths(ulst)
+k
+```
+
+Concerns from observation above:
+
+1) track_id and track_name have different number of unique values
+2) The data is not at track_id level; Track_id’s are repeated
+
+
+## Visual Summary 
+
+The box plots of variables will be helpful in outlier detection. In the analysis above, we observe that: few columns have the mean pulled towards on side due to outliers or skewness. Here we will be checking the boxplots of these variables to identify outliers and subsequently device a strategy to treat them
+
+### Boxplot distribution of Danceability
+```{r}
+#Generating boxplots
+boxplot(spotify$danceability, main = 'Boxplot distribution of Danceability')
+```
+
+### Boxplot distribution of loudness
+
+```{r}
+boxplot(spotify$loudness, main = 'Boxplot distribution of loudness')
+
+```
+### Boxplot distribution of tempo
+
+```{r}
+boxplot(spotify$tempo , main = 'Boxplot distribution of tempo')
+
+```
+
+
+From the boxplot distributions we see that the variable danceability has one value at 0, which stands out from the remaining of the variable. Similarly in loudness there is one value that is very low ‘-46’ and in tempo there is one value that is too high and one value that is too low than the majority of data points.
+
+We can remove these records, to trim tails of these variables. As these are just a couple of records, it would not be harmful in terms of data loss and it is safe to remove these records from the dataset and visualize the dataset again to see the change in distribution.
+
+```{r}
+#Trimming outliers
+new_df <- subset(spotify, danceability > min(danceability) & loudness > min(loudness) & tempo > min(tempo) & tempo < max(tempo))
+
+```
+
+## Visualizing the distributions again
+
+```{r}
+boxplot(new_df$danceability, main = 'Distribution of Danceability')
+
+```
+
+```{r}
+boxplot(new_df$loudness, main = 'Distribution of loudness')
+
+```
+
+```{r}
+boxplot(new_df$loudness, main = 'Distribution of loudness')
+
+```
+
+The below table shows a glimpse of the final cleaned dataset.
+
+```{r}
+#printing head
+knitr::kable(head(new_df,5), "simple")
+```
+
+
+# Exploratory Data Analysis 
+
+Exploratory Data analysis (EDA) helps us uncover useful information from data that is not self-evident, only if EDA is done correctly.
+
+EDA is essentail before we start to build a model on the data.
+
+With EDA we can understand the patterns within the data, detect outliers or anomalous events and find interesting relations among the variables.
+
+I have used correlation plot, histograms and boxplots in my EDA.
+
+## Correlation plot 
+
+```{r}
+corr_spotify <- select(new_df, track_popularity, danceability, energy, loudness, speechiness, acousticness, instrumentalness, liveness, valence, tempo)
+corrplot(cor(corr_spotify), type="lower")
+```
+
+Based on the plot, we can state that popularity does not have strong correlation with other track features. But quite a few variables have strong correlation with each other, indicating multicollinearity and might not be suitable for classification algorithms.
+
+‘Energy’ and ‘loudness’ have the highest correlation, and a positive one, which does not surprise
+
+‘Energy’ and ‘acousticness’ have a highly-correlated inverse relationship, which also makes total sense. The more a song skews towards being acoustic, the less energy it tends to be
+
+Unfortunately, with our dependent variable being ‘popularity’, we notice very poor correlation values across our independent variables. The best we get is a -.37 between
+‘acousticness’ and ‘popularity’
+
+From this correlation matrix, I plucked four of the best features (ones with the highest correlation) to use later on during feature engineering. These four are: ‘acousticness’, ‘instrumentalness’, ‘loudness’, and ‘energy’ 
+
+## Most popular genre
+
+First, let us find out the distribution of songs across genres. What genre has the most number of songs in the dataset?
+
+
+```{r}
+genre <- Corpus(VectorSource(new_df$playlist_genre))
+genre_dtm <- DocumentTermMatrix(genre)
+genre_freq <- colSums(as.matrix(genre_dtm))
+freq <- sort(colSums(as.matrix(genre_dtm)), decreasing=TRUE) 
+genre_wf <- data.frame(word=names(genre_freq), freq=genre_freq)
+
+ggplot(genre_wf, aes(x=reorder(word,-freq), y=freq, fill = "red"))+ geom_bar(stat="identity")+  theme(axis.text.x=element_text(angle=45, hjust=1))+ ggtitle("Most Popular genres in Spotify")+ xlab("Genre")+ ylab("Frequency")
+```
+Rap is the genre in which most songs have been released, followed by pop and then EDM.
+
+
+
+## Who are the artists with the most releases?
+
+We are generating a plot with top 15 artists with most releases 
+
+From the plot we can see Queen has most releases followed by Martin Garrix and Don Omar
+
+
+```{r}
+# artists with most releases
+most_releases <- new_df %>% group_by(Artist = track_artist) %>%
+  summarise(No_of_tracks = n()) %>%
+  arrange(desc(No_of_tracks)) %>%
+  top_n(15, wt = No_of_tracks) %>% 
+  ggplot(aes(x = Artist, y = No_of_tracks)) +
+        geom_bar(stat = "identity") +
+        coord_flip() + labs(title = "artists with the most releases", x = "artists", y = "no of releases")
+
+ggplotly(most_releases)
+```
+
+## What are the popular words featuring in titles?
+
+```{r}
+#Create a vector containing only the text
+text <- new_df$track_name 
+# Create a corpus  
+docs <- Corpus(VectorSource(text))
+
+#clean text data
+docs <- docs %>%
+        tm_map(removeNumbers) %>%
+        tm_map(removePunctuation) %>%
+        tm_map(stripWhitespace)
+docs <- tm_map(docs, content_transformer(tolower))
+docs <- tm_map(docs, removeWords, stopwords("english"))
+docs <- tm_map(docs, removeWords,c("feat","edit","remix","remastered","remaster","radio","version","original","mix"))
+
+#create a doument-term matrix
+
+dtm <- TermDocumentMatrix(docs) 
+matrix <- as.matrix(dtm) 
+words <- sort(rowSums(matrix),decreasing=TRUE) 
+df <- data.frame(word = names(words),freq=words)
+
+#generate the word cloud
+wordcloud(words = df$word, freq = df$freq,scale=c(8,0.25), min.freq = 1,
+          max.words=150, random.order=FALSE, rot.per=0.25, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+No word has been more associated with music than love. Love is the most frequently used word in track titles. Like, don’t, one etc are the other frequent ones
+
+## When were the tracks released?
+
+Is there something as a golden age of music? A span of years when a lot of songs were released? The graph below will tell us
+
+```{r}
+# grouping tracks by years
+
+plot_year <- new_df %>% 
+  select(year) %>%
+  group_by(year) %>%
+  summarise(count = n()) 
+
+#plotting releases across years
+
+year_plot <- ggplot(plot_year,aes(x = year, y = count,group = 1)) + 
+  geom_line() +
+  theme(legend.position = "none",axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Release of songs across years", x = "Year", 
+       y = "No of songs released")
+
+ggplotly(year_plot)
+```
+The advent and popularity of internet may have led to this remarkable spike in the number of songs released post 2000. The dip in 2020 is because we only have data for less than a month in 2020.
+
+
+## Who are the popular artists overall?
+
+```{r}
+#finding popular artists
+popular_artists <- new_df %>% group_by(Artist = track_artist) %>%
+  summarise(No_of_tracks = n(),Popularity = mean(track_popularity))  %>% 
+  filter(No_of_tracks > 2) %>%
+  arrange(desc(Popularity)) %>%
+  top_n(15, wt = Popularity) %>% 
+  ggplot(aes(x = Artist, y = Popularity)) +
+        geom_bar(stat = "identity") +
+        coord_flip() + labs(title = "popular artists overall", x = "Artists", y = "Popularity")
+
+ggplotly(popular_artists)
+```
+JACKBOYS, DaBaby and Roddy Rich are the most popular artists. I have given a condition of artists having minimum 2 credits to their name so as to eliminate “one hit wonders”
+
+## Who are the top artists in each genre?
+
+```{r}
+# top artists in each genre
+top_artists_genre <- new_df %>% 
+  group_by(Genre = playlist_genre, Artist = track_artist) %>%
+  summarise(No_of_tracks = n(), Popularity = mean(track_popularity)) %>% 
+  filter(No_of_tracks > 2) %>%
+  arrange(desc(Popularity)) %>%
+  top_n(1, wt = Popularity)
+
+
+kable(top_artists_genre , format = "html") %>%
+  kable_styling(bootstrap_options = "striped") %>%
+    column_spec(2, width = "12em")
+```
+
+
+## What is the distribution of popularity among genres?
+
+```{r}
+#popularity among genres
+rating_plot <- ggplot(new_df, aes(x = playlist_genre, y = track_popularity)) +
+        geom_boxplot() +
+        coord_flip() +
+        labs(title = "Popularity across genres", x = "Genres", y = "Popularity")
+
+ggplotly(rating_plot)
+
+```
+Pop has the highest median popularity among the genres. EDM has least median popularity
+
+
+```{r}
+hist(new_df$track_popularity, main = 'Distribution of Track Popularity', xlab = 'Track popularity', col = 'light blue')
+
+```
+
+The Pareto principle is in full effect here, with a right skewed distribution showing us how truly rare it is to have a popular song.
+
+
+# Regression Analysis
+
+To predict popularity based on song characteristics we make use of multiple regression.
+
+Regression analysis is a set of statistical processes for estimating the relationships between a dependent variable and one or more independent variables.
+
+Multiple linear regression performs the task to predict a dependent variable value, track_popularity in our scenario based on independent variables that is song characteristics.
+
+## Initial Model
+
+Creating a multiple linear regression model with track_popularity value as the response variable and danceability, energy, key, loudness, mode, speechiness, acousticness, instrumentalness, liveness, valence, tempo and duration_ms as the covariates.
+
+```{r}
+model_1 <- lm(track_popularity ~ danceability + energy + key + loudness + mode + speechiness + acousticness + instrumentalness + liveness + valence + tempo + duration_ms, 
+              data = new_df)
+
+summary(model_1)
+```
+
+
+It can be noticed that all the covariates in the model are significant expect key since the p-value for each of them is less than 0.05.
+
+Besides, the Adjusted R- squared values is 0.05786 which is moderate. p-value of the model is < 2.2e-16 suggesting all the results are significant.
+
+However, We are performing variable selection process to identify the significant covariates.
+
+## Vairable selection
+
+```{r}
+model_3 = regsubsets(track_popularity ~ danceability + energy + key + loudness + mode + speechiness + acousticness + instrumentalness + liveness + valence + tempo + duration_ms, 
+             data = new_df,
+             nbest = 7)
+
+plot(model_3, scale = "bic")
+```
+According to best subset selection, the influence of ‘Energy’ > ‘Loudness’.
+
+Upon comparing both these results we can arrive at the conclusion that 1 1 0 1 1 1 1 1 1 1 1 1 is the best linear regression model for this dataset or in other words, all variables except ‘key’ are statiscally significant in predicting the track popularity.
+
+
+# Final Model 
+
+```{r}
+model_2 <- lm(track_popularity ~ danceability + energy + loudness + mode + speechiness + acousticness + instrumentalness + liveness + valence + tempo + duration_ms, 
+             data = new_df)
+
+summary(model_2)
+```
+
+Adjusted R- squared values is 0.0579. This implies that the model can predict the track popularity and is able to explain 5.79% of the variation in the data set.
+
+
+
+## Model Adequacy test 
+
+```{r}
+par(mfrow = c(1,2))
+# generate QQ plot
+qqnorm(model_2$residuals,main = "Model")
+qqline(model_2$residuals)
+
+# generate Scatter Plot
+plot(model_2$fitted.values,model_2$residuals,pch = 20)
+abline(h = 0,col = "grey") 
+```
+
+From the graphs, we observe that the qq plot is not ideal and the data in the scatterplot is not evenly distributed.
+
+Therefore, this dataset doesn’t completely satisfy the normality, linearity and equal variance assumptions.
+
+The model needs to transformed to make accurate predictions about the popularity.
+
+# Summary 
+
+I hope the insights given in the previous sections have been informative to you. Given below is a summary of the findings that I have come across during the exploration of this dataset
+
+## Conclusion
+
+RAP is the genre in which most songs have been released, followed by pop and then EDM.
+
+Pop has the highest median popularity among the genres. EDM has least median popularity
+
+With ~130 tracks in their name, Queen have been the busiest artists over time. Martin Garrix comes in second with ~90 tracks
+
+JACKBOYS, DaBaby and Roddy Rich are the most popular artists. I have given a condition of artists having minimum 2 credits to their name so as to eliminate “one hit wonders”
+
+Love is the most frequently used word in track titles. Like, don’t, one etc are the other frequent ones
+
+The popularity of a song is most influenced by the dancability, loundness and valence of the song. We came to this conclusion from the correlation matrix for the most popular songs on Spotify
+
+Spotify could be determining a song’s popularity based on all the characteristics of apart from ‘key’. We concluded this from the model we created using multiple linear regression analysis through the variable selection method.
+
+A common assumption is that energy influences popularity like energetic songs are more popular. However, we could not find and correlation betweeen popularity and energy
+
+## Implications
+The model which we created could be used by people to calculate popularity. That factor would help people understand how the song will fare when it will be released
+
+This analysis can be helpful to students studying music or wanting to pursue a career in music
+
+## Future scope 
+
+We can improve the model by applying transformations on the dependent variable and covariants. We will be able to get a better model for prediction analysis
+
+We can included sub-genre to be considered it as a factor which determines the popularity of a song.
+
+Combining different datasets related to music apart from the Spotify data wil be helpful in better analysis of the song’s popularity.
+
+

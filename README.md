@@ -1,0 +1,2 @@
+# Spotify-Songs-Analysis-in-R
+The problem that I am trying to address with this project is to try to find and analyse the features which directly contribute to the popularity of a song. There are many different kinds of songs which are releasing every day. What makes a song more likeable than another? Why is one genre more popular than another? These are some of the questions I plan on addressing through this project.
